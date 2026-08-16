@@ -25,6 +25,12 @@ Early. Phase 1 (post-game summary) is the current target — it shares the entir
 perception → state → events backbone with the live caster, minus the latency
 pressure and minus the cost of being wrong in public.
 
+| Stage | State |
+|---|---|
+| 1.1 Shot / replay segmentation | **Implemented**, 24 tests passing against synthetic footage. Not yet validated on real broadcast video. |
+| 1.2–1.7 | Skeletons with design notes |
+| Phase 2 | Skeletons with design notes |
+
 ## Phases
 
 **Phase 1 — post-game summary**
@@ -99,6 +105,30 @@ pip install -r requirements.txt
 ```bash
 pip install git+https://github.com/roboflow/sports.git
 ```
+
+## Tests
+
+```bash
+pip install pytest
+pytest
+```
+
+The segmentation tests run against **synthetic frames** generated in
+`tests/synth.py` — green-dominant pitch frames with and without a static score
+bug, busy crowd frames, close-ups, and flat graphics. No footage needed, and
+each generator targets the property the classifier actually keys on rather than
+the appearance of the real thing.
+
+Run segmentation over a real video:
+
+```bash
+python -m caster.segmentation match.mp4 --fps 25
+```
+
+It prints a shot list with green ratio and scoreboard score per segment, then a
+coverage summary. Live wide should be roughly 55–75% of a full match; a much
+lower figure usually means calibration locked onto the wrong region rather than
+that the broadcaster is unusual.
 
 ## Layout
 
