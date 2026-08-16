@@ -27,9 +27,26 @@ pressure and minus the cost of being wrong in public.
 
 | Stage | State |
 |---|---|
-| 1.1 Shot / replay segmentation | **Implemented**, 24 tests passing against synthetic footage. Not yet validated on real broadcast video. |
-| 1.2–1.7 | Skeletons with design notes |
+| 1.1 Shot / replay segmentation | **Implemented** — cut detection, scoreboard localisation, shot classification |
+| 1.4 Game state | **Implemented** — possession hysteresis, scoreboard reading, temporal smoothing |
+| 1.2, 1.3, 1.5–1.7 | Skeletons with design notes |
 | Phase 2 | Skeletons with design notes |
+
+55 tests passing against synthetic footage. **Not yet validated on real
+broadcast video** — thresholds will need tuning on actual frames.
+
+### Two rules that shape the state layer
+
+**Hysteresis everywhere.** Raw per-frame readings are noisy in ways that
+matter. Nearest-player possession flickers dozens of times a minute between two
+players contesting the ball, and every flicker reads as a pass downstream. A
+single digit misread reads as a goal. Both are fixed the same way: a new value
+must hold for several consecutive frames, and beat the incumbent by a margin,
+before it is accepted.
+
+**Constraints reject nonsense for free.** A score never decreases and never
+jumps by two. A clock never runs backwards. Applying those rules costs nothing
+and discards most misreads before they reach the event layer.
 
 ## Phases
 

@@ -100,6 +100,40 @@ def graphic_frame(rng) -> np.ndarray:
     return np.clip(frame, 0, 255).astype(np.uint8)
 
 
+#: A bug with well-separated fields, for testing the reader rather than the
+#: detector. Real bugs put home score, away score, and clock in distinct boxes;
+#: the compact "2-1" style in `pitch_frame` is fine for presence detection but
+#: deliberately not readable field-by-field.
+READABLE_BUG_RECT = (10, 10, 140, 34)
+_FONT = cv2.FONT_HERSHEY_SIMPLEX
+
+
+def scoreboard_frame(rng, home: int = 2, away: int = 1, minute: int = 37,
+                     with_bug: bool = True) -> np.ndarray:
+    """Pitch frame carrying a bug whose fields can be read individually."""
+    frame = pitch_frame(rng, with_bug=False)
+    if not with_bug:
+        return frame
+
+    x, y, w, h = READABLE_BUG_RECT
+    cv2.rectangle(frame, (x, y), (x + w, y + h), (30, 28, 26), -1)
+    cv2.putText(frame, str(home), (x + 12, y + 26), _FONT, 0.8,
+                (245, 245, 245), 2, cv2.LINE_AA)
+    cv2.putText(frame, str(away), (x + 45, y + 26), _FONT, 0.8,
+                (245, 245, 245), 2, cv2.LINE_AA)
+    cv2.putText(frame, f"{minute:02d}", (x + 95, y + 26), _FONT, 0.8,
+                (245, 245, 245), 2, cv2.LINE_AA)
+    return frame
+
+
+#: Field positions as fractions of the bug ROI, matching `scoreboard_frame`.
+READABLE_LAYOUT = {
+    "home_score": (0.03, 0.0, 0.18, 1.0),
+    "away_score": (0.28, 0.0, 0.18, 1.0),
+    "clock": (0.63, 0.0, 0.32, 1.0),
+}
+
+
 GENERATORS = {
     "live": lambda rng: pitch_frame(rng, with_bug=True),
     "replay": replay_frame,
