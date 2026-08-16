@@ -32,13 +32,37 @@ pressure and minus the cost of being wrong in public.
 | 1.5 Event detection | **Implemented** — passes, turnovers, shots, goals, saves, restarts |
 | 1.7 Summary | **Implemented** — possession, player stats, heatmaps, timeline, recap |
 | 1.2 Perception | **Implemented** — tracking, sliced ball inference, team clustering. Detection models are injected, so bring your own weights. |
-| 1.3 Homography | Skeleton — needs a pitch-keypoint model |
-| 1.6 Eval set | Not started — needs real footage |
+| 1.3 Homography | **Implemented** — per-frame solve with rejection, stale-transform fallback |
+| 1.6 Eval set | **Blocked** — needs real footage |
 | Phase 2 | Skeletons with design notes |
 
-144 tests passing against synthetic data, including an integration test that
+166 tests passing against synthetic data, including an integration test that
 runs state → events → summary end to end. **Not yet validated on real broadcast
 video** — every threshold is currently a reasoned guess.
+
+Everything implementable without real footage and model weights is implemented.
+The remaining Phase 1 item is the evaluation set, which is exactly the thing
+that needs a real match.
+
+### A bad homography is worse than no homography
+
+It doesn't raise — it silently maps every player to a plausible-looking but
+wrong location, and the event layer happily reports shots and turnovers derived
+from nonsense. So solving is only half the job. Three checks reject bad
+solutions, each catching a different failure:
+
+- **Reprojection error** catches mislabelled or badly localised keypoints, which
+  otherwise produce a confident transform built on bad input.
+- **Projected pitch shape** catches degenerate solutions from near-collinear
+  points — the common case when the camera is tight on one touchline and every
+  visible landmark sits on one line. Four collinear points admit an
+  arithmetically valid homography that folds the pitch into a sliver.
+- **Projected area** catches transforms that shrink the pitch to a few pixels.
+
+When no solution passes, the mapper reuses the last good transform for a few
+frames to bridge landmark dropouts — then gives up. The camera is moving, so a
+stale transform drifts, and past a short window it is better to report no
+mapping than confident wrong positions.
 
 ### Models are injected, not imported
 
