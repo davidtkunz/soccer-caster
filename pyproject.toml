@@ -1,8 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "soccer-caster"
 version = "0.1.0"
 description = "Broadcast soccer to post-game summary, and summary to live commentary"
 requires-python = ">=3.11"
+dependencies = [
+    "supervision",
+    "trackers",
+    "opencv-python",
+    "numpy",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+narration = ["anthropic"]
+fetch = ["yt-dlp", "imageio-ffmpeg"]
+dev = ["pytest"]
+
+[project.scripts]
+caster-segment = "caster.segmentation:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]

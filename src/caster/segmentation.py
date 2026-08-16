@@ -9,6 +9,17 @@ Two heuristics carry most of the weight:
 1. The main tactical view is the one dominated by pitch green.
 2. The scoreboard overlay is *removed during replays*.
 
+**Known limitation.** Cut detection is colour-histogram based, so it does not
+fire on a cut between two shots that look alike -- and a replay of wide pitch
+play looks almost exactly like live wide pitch play. Confirmed on synthetic
+footage: crowd and graphic boundaries are found cleanly, live/replay boundaries
+are not. In real broadcasts this is usually masked, because replays are
+introduced with a branded wipe that the histogram does catch. Where it is not,
+the fix is to treat a *change in scoreboard presence* as a boundary in its own
+right -- the bug vanishing is a stronger signal for this specific transition
+than anything in the colour histogram. Left unimplemented until there is real
+footage to validate it against.
+
 That second one is the important one, and it is why this module bothers to
 locate the scoreboard at all. Green ratio alone cannot separate a live wide
 shot from a replay of a live wide shot -- both are pitch footage. The presence
@@ -537,23 +548,109 @@ def coverage(segments: list[Segment]) -> dict[ShotClass, float]:
     return out
 
 
-if __name__ == "__main__":  # pragma: no cover
+def dump_samples(video_path: str, segments, detector: ScoreboardDetector, out_dir: str,
+                 per_class: int = 4) -> None:
+    """Write sample frames per class plus the scoreboard evidence.
+
+    Classification thresholds cannot be tuned from numbers alone -- you have to
+    see what the segmenter called a replay. This writes enough to check the two
+    things that actually go wrong: whether the ROI landed on the score bug, and
+    whether live-wide and replay are being told apart.
+    """
+    import os
+    from collections import defaultdict
+
+    os.makedirs(out_dir, exist_ok=True)
+    wanted: dict[ShotClass, list[int]] = defaultdict(list)
+    for s in segments:
+        if len(wanted[s.kind]) < per_class:
+            wanted[s.kind].append((s.start_frame + s.end_frame) // 2)
+
+    targets = {idx: kind for kind, idxs in wanted.items() for idx in idxs}
+    cap = cv2.VideoCapture(video_path)
+    written = 0
+    try:
+        for idx in sorted(targets):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            ok, frame = cap.read()
+            if not ok:
+                continue
+            kind = targets[idx]
+            annotated = frame.copy()
+            if detector.calibrated:
+                x, y, w, h = detector.roi
+                cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 215, 255), 2)
+                cv2.putText(annotated, f"board={detector.score(frame):.2f}",
+                            (x, max(18, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                            (0, 215, 255), 2)
+            cv2.putText(annotated, f"{kind.value}  frame {idx}", (12, 32),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv2.imwrite(os.path.join(out_dir, f"{kind.value}_{idx:07d}.jpg"), annotated)
+            written += 1
+    finally:
+        cap.release()
+
+    if detector.calibrated and detector.template is not None:
+        scale = max(1, 240 // max(1, detector.template.shape[0]))
+        big = cv2.resize(
+            detector.template, None, fx=scale, fy=scale,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        cv2.imwrite(os.path.join(out_dir, "scoreboard_template.png"), big)
+
+    print(f"\nwrote {written} sample frames to {out_dir}/")
+    if detector.calibrated:
+        print("  scoreboard_template.png -- what calibration locked onto.")
+        print("  Check it is the score bug and not a quiet patch of turf.")
+
+
+def main(argv=None) -> int:  # pragma: no cover
     import argparse
 
     parser = argparse.ArgumentParser(description="Segment broadcast soccer footage.")
     parser.add_argument("video")
-    parser.add_argument("--fps", type=float, default=25.0)
-    args = parser.parse_args()
+    parser.add_argument("--fps", type=float, default=None,
+                        help="override the video's reported frame rate")
+    parser.add_argument("--dump", default=None, metavar="DIR",
+                        help="write sample frames per class for inspection")
+    parser.add_argument("--limit", type=int, default=None,
+                        help="only analyse the first N frames")
+    args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
+    probe = cv2.VideoCapture(args.video)
+    if not probe.isOpened():
+        raise SystemExit(f"cannot open video: {args.video}")
+    fps = args.fps or probe.get(cv2.CAP_PROP_FPS) or 25.0
+    total = int(probe.get(cv2.CAP_PROP_FRAME_COUNT))
+    probe.release()
+    print(f"{args.video}: {total} frames @ {fps:.2f} fps "
+          f"({total / fps / 60:.1f} min)\n")
+
     seg = Segmenter()
-    segments = seg.analyze_video(args.video)
+    seg.calibrate_from_video(args.video)
+
+    cap = cv2.VideoCapture(args.video)
+
+    def stream():
+        try:
+            n = 0
+            while args.limit is None or n < args.limit:
+                ok, frame = cap.read()
+                if not ok:
+                    return
+                n += 1
+                yield frame
+        finally:
+            cap.release()
+
+    segments = seg.analyze(stream())
 
     for s in segments:
         print(
             f"{s.start_frame:>7} - {s.end_frame:<7} "
-            f"{s.duration(args.fps):>6.1f}s  {s.kind.value:<10} "
+            f"{s.duration(fps):>6.1f}s  {s.kind.value:<10} "
             f"green={s.features.get('green_ratio', 0):.2f} "
             f"board={s.features.get('scoreboard', 0):.2f}"
         )
@@ -561,3 +658,24 @@ if __name__ == "__main__":  # pragma: no cover
     print("\ncoverage:")
     for kind, frac in sorted(coverage(segments).items(), key=lambda kv: -kv[1]):
         print(f"  {kind.value:<10} {frac:6.1%}")
+
+    live = coverage(segments).get(ShotClass.LIVE_WIDE, 0.0)
+    print()
+    if not seg.scoreboard.calibrated:
+        print("[!] no scoreboard found -- replays cannot be distinguished from")
+        print("    live play, so every wide shot is labelled live_wide.")
+    elif 0.55 <= live <= 0.80:
+        print(f"[ok] live_wide {live:.0%} -- in the expected range for a match.")
+    else:
+        print(f"[!] live_wide {live:.0%} -- expected roughly 55-75%.")
+        print("    Usually means calibration locked onto the wrong region,")
+        print("    or GREEN_WIDE needs tuning for this broadcaster.")
+
+    if args.dump:
+        dump_samples(args.video, segments, seg.scoreboard, args.dump)
+
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
