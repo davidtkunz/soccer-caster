@@ -30,11 +30,15 @@ pressure and minus the cost of being wrong in public.
 | 1.1 Shot / replay segmentation | **Implemented** — cut detection, scoreboard localisation, shot classification |
 | 1.4 Game state | **Implemented** — possession hysteresis, scoreboard reading, temporal smoothing |
 | 1.5 Event detection | **Implemented** — passes, turnovers, shots, goals, saves, restarts |
-| 1.2, 1.3, 1.6, 1.7 | Skeletons with design notes |
+| 1.7 Summary | **Implemented** — possession, player stats, heatmaps, timeline, recap |
+| 1.2 Perception | Skeleton — needs Roboflow models + GPU |
+| 1.3 Homography | Skeleton — needs pitch-keypoint model |
+| 1.6 Eval set | Not started — needs real footage |
 | Phase 2 | Skeletons with design notes |
 
-100 tests passing against synthetic data. **Not yet validated on real broadcast
-video** — thresholds will need tuning on actual frames.
+124 tests passing against synthetic data, including an integration test that
+runs state → events → summary end to end. **Not yet validated on real broadcast
+video** — every threshold is currently a reasoned guess.
 
 The remaining Phase 1 gap is perception (1.2) and homography (1.3), which sit
 between the two implemented halves: segmentation decides *which* frames count,
