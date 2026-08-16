@@ -31,19 +31,38 @@ pressure and minus the cost of being wrong in public.
 | 1.4 Game state | **Implemented** — possession hysteresis, scoreboard reading, temporal smoothing |
 | 1.5 Event detection | **Implemented** — passes, turnovers, shots, goals, saves, restarts |
 | 1.7 Summary | **Implemented** — possession, player stats, heatmaps, timeline, recap |
-| 1.2 Perception | Skeleton — needs Roboflow models + GPU |
-| 1.3 Homography | Skeleton — needs pitch-keypoint model |
+| 1.2 Perception | **Implemented** — tracking, sliced ball inference, team clustering. Detection models are injected, so bring your own weights. |
+| 1.3 Homography | Skeleton — needs a pitch-keypoint model |
 | 1.6 Eval set | Not started — needs real footage |
 | Phase 2 | Skeletons with design notes |
 
-124 tests passing against synthetic data, including an integration test that
+144 tests passing against synthetic data, including an integration test that
 runs state → events → summary end to end. **Not yet validated on real broadcast
 video** — every threshold is currently a reasoned guess.
 
-The remaining Phase 1 gap is perception (1.2) and homography (1.3), which sit
-between the two implemented halves: segmentation decides *which* frames count,
-and event detection consumes pitch-coordinate state. Perception is what turns
-one into the other, and it is the part that needs the Roboflow models and a GPU.
+### Models are injected, not imported
+
+Detection weights are the heavy, environment-specific part of the pipeline.
+Everything around them — slicing, tracking, clustering players into teams,
+filtering out referees — is ordinary logic that benefits from being testable
+without a GPU. `Perception` takes `player_model` and `ball_model` as plain
+callables, so the glue runs against fakes in the test suite and against real
+checkpoints in production.
+
+Two notes from building it:
+
+**Use BoTSORT, not ByteTrack.** A broadcast camera pans constantly, so between
+frames every box shifts from camera movement rather than player movement, and
+IoU-based association drops tracks on every pan. BoTSORT estimates the camera
+transform and compensates before matching. Separately, `sv.ByteTrack` is
+deprecated as of supervision 0.28 and removed in 0.31 — the maintained
+implementations live in the [`trackers`](https://github.com/roboflow/trackers)
+package.
+
+**Fit team clustering once, then only predict.** Re-clustering per frame makes
+the cluster-to-team mapping swap unpredictably, so a player is home in one frame
+and away in the next — which the event layer reads as a continuous stream of
+turnovers.
 
 ### Two rules that shape the state layer
 

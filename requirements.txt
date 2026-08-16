@@ -1,27 +1,31 @@
-# Core computer vision
+# Core -- everything the implemented modules actually import
 supervision
+trackers            # BoTSORT with camera motion compensation; sv.ByteTrack is
+                    # deprecated in supervision 0.28 and removed in 0.31
 opencv-python
 numpy
+pyyaml
 
-# Detection / tracking models
+# Narration (Phase 2)
+anthropic
+
+# Detection weights. Perception injects its models rather than importing them,
+# so pick whichever runtime you use -- these are the common choices.
 ultralytics
 inference
 
-# roboflow/sports installs from source:
+# roboflow/sports installs from source (soccer + basketball models):
 #   pip install git+https://github.com/roboflow/sports.git
 
-# Team assignment (embedding + clustering)
-transformers
-torch
-scikit-learn
-umap-learn
+# Optional -- only if you use a learned embedder for team clustering. The
+# built-in k-means needs neither; a plain kit-colour embedder often suffices,
+# and these are a large install to take on before measuring whether you need it.
+# torch
+# transformers
 
-# Scoreboard OCR
-easyocr
+# Scoreboard OCR is template matching over the bug's own font, not general OCR
+# (one font, one size, fixed position -- a general recogniser is slower, heavier
+# and less accurate here), so there is no OCR dependency.
 
-# Narration
-anthropic
-
-# Config / utilities
-pyyaml
-tqdm
+# Dev
+pytest
