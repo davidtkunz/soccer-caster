@@ -34,11 +34,17 @@ pressure and minus the cost of being wrong in public.
 | 1.2 Perception | **Implemented** — tracking, sliced ball inference, team clustering. Detection models are injected, so bring your own weights. |
 | 1.3 Homography | **Implemented** — per-frame solve with rejection, stale-transform fallback |
 | 1.6 Eval set | **Blocked** — needs real footage |
-| Phase 2 | Skeletons with design notes |
+| 2.1 Delay buffer | **Implemented** — ring buffer, narration cursor, lookahead |
+| 2.2 Director | **Implemented** — importance gate, silence handling, barge-in |
+| 2.3 Narration / voice | Skeletons — thin wrappers over external APIs |
 
-166 tests passing against synthetic data, including an integration test that
+187 tests passing against synthetic data, including an integration test that
 runs state → events → summary end to end. **Not yet validated on real broadcast
 video** — every threshold is currently a reasoned guess.
+
+Every module carrying real logic is tested. The two that aren't (`narration.py`,
+`voice.py`) are thin wrappers over the Anthropic and ElevenLabs APIs, which need
+credentials to exercise meaningfully.
 
 Everything implementable without real footage and model weights is implemented.
 The remaining Phase 1 item is the evaluation set, which is exactly the thing
