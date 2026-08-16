@@ -1,0 +1,31 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Media — never commit footage
+*.mp4
+*.mkv
+*.mov
+*.avi
+data/
+clips/
+outputs/
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+weights/
+
+# Secrets
+.env
+.env.*
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,27 @@
+# Core computer vision
+supervision
+opencv-python
+numpy
+
+# Detection / tracking models
+ultralytics
+inference
+
+# roboflow/sports installs from source:
+#   pip install git+https://github.com/roboflow/sports.git
+
+# Team assignment (embedding + clustering)
+transformers
+torch
+scikit-learn
+umap-learn
+
+# Scoreboard OCR
+easyocr
+
+# Narration
+anthropic
+
+# Config / utilities
+pyyaml
+tqdm
