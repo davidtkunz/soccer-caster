@@ -29,11 +29,17 @@ pressure and minus the cost of being wrong in public.
 |---|---|
 | 1.1 Shot / replay segmentation | **Implemented** — cut detection, scoreboard localisation, shot classification |
 | 1.4 Game state | **Implemented** — possession hysteresis, scoreboard reading, temporal smoothing |
-| 1.2, 1.3, 1.5–1.7 | Skeletons with design notes |
+| 1.5 Event detection | **Implemented** — passes, turnovers, shots, goals, saves, restarts |
+| 1.2, 1.3, 1.6, 1.7 | Skeletons with design notes |
 | Phase 2 | Skeletons with design notes |
 
-55 tests passing against synthetic footage. **Not yet validated on real
-broadcast video** — thresholds will need tuning on actual frames.
+100 tests passing against synthetic data. **Not yet validated on real broadcast
+video** — thresholds will need tuning on actual frames.
+
+The remaining Phase 1 gap is perception (1.2) and homography (1.3), which sit
+between the two implemented halves: segmentation decides *which* frames count,
+and event detection consumes pitch-coordinate state. Perception is what turns
+one into the other, and it is the part that needs the Roboflow models and a GPU.
 
 ### Two rules that shape the state layer
 
@@ -97,6 +103,17 @@ Everything downstream runs only on segments classified live-wide.
 
 Goals are near-certain because the scoreboard tells us. Fouls are genuinely weak
 from vision alone — that row is a stub, and no commentary should depend on it.
+
+Two things the implementation makes explicit:
+
+**A pass goes through nobody.** While the ball is in flight no player possesses
+it, so possession reads `A → None → B`. The gap is the normal case, not the
+exception — a detector looking for adjacent holder changes finds almost no
+passes. What bounds it is time: loose long enough and it was a clearance.
+
+**Geometry does not call goals.** The ball crossing the line inside the mouth
+emits nothing; goals come from the scoreboard delta alone. Line-crossing only
+refines the timestamp. Where the two disagree, the scoreboard wins.
 
 ## Known ceilings
 
